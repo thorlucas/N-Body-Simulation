@@ -1,11 +1,15 @@
 module Main where
 
-type Vector = (Float, Float)
-type Pos = Vector
+import Graphics.Gloss
+import Graphics.Gloss.Interface.Pure.Simulate
+
+type Pos = Point
 type Vel = Vector
 type Acc = Vector
 type Mass = Float
 data Particle = Particle Mass Pos Vel Acc deriving (Eq, Show)
+
+type Model = [Particle]
 
 g :: Float
 g = 5
@@ -21,7 +25,7 @@ gravitate p1@(Particle _ (px1, py1) _ _) p2@(Particle m2 (px2, py2) _ _)
         a  = m2 * g / d^2
     in  (a * cos theta, a * sin theta)
 
-updateParticle :: [Particle] -> Particle -> Particle
+updateParticle :: Model -> Particle -> Particle
 updateParticle ps p@(Particle m pos vel acc) =
     let accs = map (gravitate p) ps
         acc' = foldr (\(accx, accy) (x, y) -> (accx + x, accy + y)) (0, 0) accs
@@ -29,8 +33,21 @@ updateParticle ps p@(Particle m pos vel acc) =
         pos' = (fst pos + fst vel, snd pos + snd vel)
     in  Particle m pos' vel' acc'
 
-step :: [Particle] -> [Particle]
-step ps = map (updateParticle ps) ps
+step :: ViewPort -> Float -> Model -> Model
+step _ _ ps = map (updateParticle ps) ps
+
+render :: Model -> Picture
+render ps = pictures $ map renderParticle ps
+    where
+        renderParticle :: Particle -> Picture
+        renderParticle (Particle m (x, y) _ _) =
+            let r = sqrt $ m / pi
+            in  translate x y $ color white $ circleSolid r
 
 main :: IO ()
-main = putStrLn "Hello, Haskell!"
+main = let window = InWindow "N-Body Simulation" (640, 480) (100, 100)
+           newModel = [Particle 10 (0, 0) (0, 0) (0, 0),
+                       Particle 30 ((-150), (-50)) (0, 0) (0, 0),
+                       Particle 10 ((-100), (-300)) (0, 0) (0, 0),
+                       Particle 20 (100, (-150)) (0, 0) (0, 0)]
+       in  simulate window black 60 newModel render step
